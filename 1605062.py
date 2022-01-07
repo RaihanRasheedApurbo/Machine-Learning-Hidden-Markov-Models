@@ -214,16 +214,26 @@ def task_2():
         variances.append(float(variances_str[i]))
     logger.info(variances)
 
-    def match_matrix(a, b):
+    def match_matrix(a1, b1):
+            a = np.array(a1)
+            b = np.array(b1)
             if a.shape != b.shape:
                 return False
             result = np.equal(a, b)
             # logger.info(result)
-            number_of_rows = len(result)
-            for i in range(number_of_rows):
-                for value in result[i]:
+            # logger.info(result.ndim)
+            dimension = result.ndim
+            if dimension == 2:
+                number_of_rows = len(result)
+                for i in range(number_of_rows):
+                    for value in result[i]:
+                        if not value:
+                            return False
+            elif dimension == 1:
+                for value in result:
                     if not value:
                         return False
+
             return True
 
     def get_initial_probabilities(transition_matrix):
@@ -450,31 +460,86 @@ def task_2():
 
         new_transition_matrx = get_new_transition_matrix(e)
         logger.info(new_transition_matrx)
-        transition_matrix = new_transition_matrx
+        
 
         new_means = get_new_means(y,observations)
         logger.info(new_means)
-        means = new_means
+        
 
         new_variences = get_new_varience(y,observations,new_means)
         logger.info(new_variences)
-        variances = new_variences
-
-
+        
+        counter += 1
         # logger.info(e[0][0][0])
         # logger.info(e[0][1][0])
         # logger.info(e[1][0][0])
         # logger.info(e[1][1][0])
+        result1 = match_matrix(transition_matrix,new_transition_matrx)
 
+        result2 = match_matrix(means,new_means)
+
+        result3 = match_matrix(variances,new_variences)
         
-        counter += 1
-        print(counter)
-        print(transition_matrix)
-        print(means)
-        print(variances)
-        print(initial_probabilites)
-        if counter >= 20:
+        if result1 and result2 and result3:
             break
+        
+        transition_matrix = new_transition_matrx
+        means = new_means
+        variances = new_variences
+
+    print("iteration taken to converge:", counter)
+    print("transition probabilities:", transition_matrix)
+    print("means:", means)
+    print("variances:", variances)
+    print("stationary probabilities:", initial_probabilites)
+
+    x = viterbi(
+        observations,
+        initial_probabilites,
+        emission_function,
+        transition_matrix,
+        state_names,
+    )
+    logger.info(len(x))
+
+    output_file = open("output2.txt", "w")
+    for item in x:
+        output_file.write(f'"{item}"\n')
+    output_file.close()
+
+    output_file = open("learned_parameters.txt", "w")
+    output_file.write(f"{len(transition_matrix)}\n")
+    for i in range(len(transition_matrix)):
+        for j in range(len(transition_matrix[i])):
+            output_file.write(f"{transition_matrix[i][j]} ")
+        output_file.write(f"\n")
+    for i in range(len(means)):
+        output_file.write(f"{means[i]} ")
+    output_file.write(f"\n")
+    for i in range(len(variances)):
+        output_file.write(f"{variances[i]} ")
+    output_file.write(f"\n")
+    for i in range(len(initial_probabilites)):
+        output_file.write(f"{initial_probabilites[i]} ")
+    output_file.write(f"\n")
+    output_file.close()
+    
+    from hmmlearn import hmm
+
+    remodel = hmm.GaussianHMM(n_components=2, covariance_type="full", n_iter=100)
+    observation_cast_2D = [] 
+    for i in range(len(observations)):
+        t = []
+        t.append(observations[i])
+        observation_cast_2D.append(t)
+    remodel.fit(observation_cast_2D)
+    print("***using hmmlearn package***")
+    print("transition probabilities:", remodel.transmat_)
+    print("means:", remodel.means_)
+    print("variances:", remodel.covars_)
+    
+        
+        
 
 
 if __name__ == "__main__":
