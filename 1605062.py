@@ -11,7 +11,7 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 
 logger = logging.getLogger("task_1")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.ERROR)
 logger.addHandler(stream_handler)
 
 
@@ -200,6 +200,7 @@ def task_2():
             transition_matrix[i].append(float(number))
         # logger.info(transition_matrix[i])
     logger.info(transition_matrix)
+    state_names = ["El Nino", "La Nina"]
 
     means = []
     means_str = parameter_file.readline().split()
@@ -213,35 +214,39 @@ def task_2():
         variances.append(float(variances_str[i]))
     logger.info(variances)
 
-    # initial probability p generation
-    p = np.array(transition_matrix)
-    a = np.array(transition_matrix)
-    # supporting routine that matches two matrix values
     def match_matrix(a, b):
-        if a.shape != b.shape:
-            return False
-        result = np.equal(a, b)
-        # logger.info(result)
-        number_of_rows = len(result)
-        for i in range(number_of_rows):
-            for value in result[i]:
-                if not value:
-                    return False
-        return True
+            if a.shape != b.shape:
+                return False
+            result = np.equal(a, b)
+            # logger.info(result)
+            number_of_rows = len(result)
+            for i in range(number_of_rows):
+                for value in result[i]:
+                    if not value:
+                        return False
+            return True
 
-    iteration_needed_to_converge = 0
-    while True:
-        iteration_needed_to_converge += 1
-        p = np.matmul(a, p)
-        # logger.info(np.matmul(a,p))
-        # logger.info(p)
-        if match_matrix(p, np.matmul(a, p)):
-            break
+    def get_initial_probabilities(transition_matrix):
+        # initial probability p generation
+        p = np.array(transition_matrix)
+        a = np.array(transition_matrix)
+        # supporting routine that matches two matrix values
+        
 
-    logger.info(p)
-    logger.info(np.matmul(a, p))
-    logger.info(iteration_needed_to_converge)
-    initial_probabilites = p[0]  # taking first row
+        iteration_needed_to_converge = 0
+        while True:
+            iteration_needed_to_converge += 1
+            p = np.matmul(a, p)
+            # logger.info(np.matmul(a,p))
+            # logger.info(p)
+            if match_matrix(p, np.matmul(a, p)):
+                break
+        logger.info(p)
+        logger.info(np.matmul(a, p))
+        logger.info(iteration_needed_to_converge)
+        return p[0]
+
+    
 
     def pdf_value(mean, variance, value):
         sigma_squared = variance
@@ -260,7 +265,6 @@ def task_2():
         else:
             raise "undefined emission"
 
-    state_names = ["El Nino", "La Nina"]
 
     def forward(
         observations, initial_probabilites, emission_function, transition_probabilites
@@ -338,7 +342,101 @@ def task_2():
                 t1[i][j - 1] /= normalization_factor
         return t1
 
+    def likelihood_of_states(a, b):
+        k = len(a)
+        t = len(a[0])
+
+        y = [[]] * k
+        for i in range(k):
+            y[i] = [0] * t
+
+        for j in range(t):
+            denominator = 0
+            for i in range(k):
+                y[i][j] = a[i][j] * b[i][j]
+                denominator += y[i][j]
+            for i in range(k):
+                y[i][j] /= denominator
+
+        return y
+
+    def likelihood_of_transition(a,b,transition_matrix,emission_function,observations):
+        k = len(a)
+        t = len(a[0])
+        y = observations
+        e = [[]] * k
+        for i in range(k):
+            e[i] = [[]] * k
+            for j in range(k):
+                e[i][j] = [0] * (t-1)
+
+        for l in range(t-1):
+            denominator = 0
+            for i in range(k):
+                for j in range(k):
+                    e[i][j][l] = a[i][l] * transition_matrix[i][j] * b[j][l+1] * emission_function(j,y[l+1])
+                    denominator += e[i][j][l]
+            for i in range(k):
+                for j in range(k):
+                    e[i][j][l] /= denominator 
+        
+        return e
+                    
+    def get_new_transition_matrix(e):
+        k = len(e)
+        t = len(e[0][0])
+        t1 = [[]] * k
+        for i in range(k):
+            t1[i] = [0] * k
+        
+        for i in range(k):
+            normalization_factor = 0
+            for j in range(k):
+                t1[i][j] = 0
+                for l in range(t):
+                    t1[i][j] += e[i][j][l]
+                normalization_factor += t1[i][j]
+            for j in range(k):
+                t1[i][j] /= normalization_factor
+        
+
+
+        return t1
+
+    def get_new_means(y,observations):
+        k = len(y)
+        t = len(y[0])
+
+        means = [0] * k
+        
+        for i in range(k):
+            sum1 = 0
+            sum2 =0
+            for j in range(t):
+                sum1 += y[i][j] * observations[j]
+                sum2 += y[i][j]
+            means[i] = sum1/sum2
+        return means
+
+    def get_new_varience(y,observations,new_means):
+        k = len(y)
+        t = len(y[0])
+
+        variences = [0] * k
+        
+        for i in range(k):
+            sum1 = 0
+            sum2 =0
+            for j in range(t):
+                sum1 += y[i][j] * (observations[j]-new_means[i])**2
+                sum2 += y[i][j]
+            variences[i] = sum1/sum2
+        return variences
+
+    counter = 0
     while True:
+
+        initial_probabilites = get_initial_probabilities(transition_matrix)
 
         a = forward(
             observations, initial_probabilites, emission_function, transition_matrix
@@ -346,42 +444,37 @@ def task_2():
 
         b = backward(observations, emission_function, transition_matrix)
 
-        # logger.info(a[0][0])
-        # logger.info(a[0][1])
-        # logger.info(a[0][2])
+        y = likelihood_of_states(a, b)
 
-        # logger.info(a[0][-1])
-        # logger.info(a[0][-2])
-        # logger.info(a[0][-3])
+        e = likelihood_of_transition(a,b,transition_matrix,emission_function, observations)
 
-        # logger.info(a[1][0])
-        # logger.info(a[1][1])
-        # logger.info(a[1][2])
+        new_transition_matrx = get_new_transition_matrix(e)
+        logger.info(new_transition_matrx)
+        transition_matrix = new_transition_matrx
 
-        # logger.info(a[1][-1])
-        # logger.info(a[1][-2])
-        # logger.info(a[1][-3])
+        new_means = get_new_means(y,observations)
+        logger.info(new_means)
+        means = new_means
 
-        # logger.info(b[0][0])
-        # logger.info(b[0][1])
-        # logger.info(b[0][2])
+        new_variences = get_new_varience(y,observations,new_means)
+        logger.info(new_variences)
+        variances = new_variences
 
-        # logger.info(b[0][-1])
-        # logger.info(b[0][-2])
-        # logger.info(b[0][-3])
 
-        # logger.info(b[1][0])
-        # logger.info(b[1][1])
-        # logger.info(b[1][2])
-
-        # logger.info(b[1][-1])
-        # logger.info(b[1][-2])
-        # logger.info(b[1][-3])
+        # logger.info(e[0][0][0])
+        # logger.info(e[0][1][0])
+        # logger.info(e[1][0][0])
+        # logger.info(e[1][1][0])
 
         
-        break
-
-    
+        counter += 1
+        print(counter)
+        print(transition_matrix)
+        print(means)
+        print(variances)
+        print(initial_probabilites)
+        if counter >= 20:
+            break
 
 
 if __name__ == "__main__":
