@@ -215,33 +215,32 @@ def task_2():
     logger.info(variances)
 
     def match_matrix(a1, b1):
-            a = np.array(a1)
-            b = np.array(b1)
-            if a.shape != b.shape:
-                return False
-            result = np.equal(a, b)
-            # logger.info(result)
-            # logger.info(result.ndim)
-            dimension = result.ndim
-            if dimension == 2:
-                number_of_rows = len(result)
-                for i in range(number_of_rows):
-                    for value in result[i]:
-                        if not value:
-                            return False
-            elif dimension == 1:
-                for value in result:
+        a = np.array(a1)
+        b = np.array(b1)
+        if a.shape != b.shape:
+            return False
+        result = np.equal(a, b)
+        # logger.info(result)
+        # logger.info(result.ndim)
+        dimension = result.ndim
+        if dimension == 2:
+            number_of_rows = len(result)
+            for i in range(number_of_rows):
+                for value in result[i]:
                     if not value:
                         return False
+        elif dimension == 1:
+            for value in result:
+                if not value:
+                    return False
 
-            return True
+        return True
 
     def get_initial_probabilities(transition_matrix):
         # initial probability p generation
         p = np.array(transition_matrix)
         a = np.array(transition_matrix)
         # supporting routine that matches two matrix values
-        
 
         iteration_needed_to_converge = 0
         while True:
@@ -255,8 +254,6 @@ def task_2():
         logger.info(np.matmul(a, p))
         logger.info(iteration_needed_to_converge)
         return p[0]
-
-    
 
     def pdf_value(mean, variance, value):
         sigma_squared = variance
@@ -274,7 +271,6 @@ def task_2():
             return return_value
         else:
             raise "undefined emission"
-
 
     def forward(
         observations, initial_probabilites, emission_function, transition_probabilites
@@ -370,7 +366,9 @@ def task_2():
 
         return y
 
-    def likelihood_of_transition(a,b,transition_matrix,emission_function,observations):
+    def likelihood_of_transition(
+        a, b, transition_matrix, emission_function, observations
+    ):
         k = len(a)
         t = len(a[0])
         y = observations
@@ -378,27 +376,32 @@ def task_2():
         for i in range(k):
             e[i] = [[]] * k
             for j in range(k):
-                e[i][j] = [0] * (t-1)
+                e[i][j] = [0] * (t - 1)
 
-        for l in range(t-1):
+        for l in range(t - 1):
             denominator = 0
             for i in range(k):
                 for j in range(k):
-                    e[i][j][l] = a[i][l] * transition_matrix[i][j] * b[j][l+1] * emission_function(j,y[l+1])
+                    e[i][j][l] = (
+                        a[i][l]
+                        * transition_matrix[i][j]
+                        * b[j][l + 1]
+                        * emission_function(j, y[l + 1])
+                    )
                     denominator += e[i][j][l]
             for i in range(k):
                 for j in range(k):
-                    e[i][j][l] /= denominator 
-        
+                    e[i][j][l] /= denominator
+
         return e
-                    
+
     def get_new_transition_matrix(e):
         k = len(e)
         t = len(e[0][0])
         t1 = [[]] * k
         for i in range(k):
             t1[i] = [0] * k
-        
+
         for i in range(k):
             normalization_factor = 0
             for j in range(k):
@@ -408,39 +411,37 @@ def task_2():
                 normalization_factor += t1[i][j]
             for j in range(k):
                 t1[i][j] /= normalization_factor
-        
-
 
         return t1
 
-    def get_new_means(y,observations):
+    def get_new_means(y, observations):
         k = len(y)
         t = len(y[0])
 
         means = [0] * k
-        
+
         for i in range(k):
             sum1 = 0
-            sum2 =0
+            sum2 = 0
             for j in range(t):
                 sum1 += y[i][j] * observations[j]
                 sum2 += y[i][j]
-            means[i] = sum1/sum2
+            means[i] = sum1 / sum2
         return means
 
-    def get_new_varience(y,observations,new_means):
+    def get_new_varience(y, observations, new_means):
         k = len(y)
         t = len(y[0])
 
         variences = [0] * k
-        
+
         for i in range(k):
             sum1 = 0
-            sum2 =0
+            sum2 = 0
             for j in range(t):
-                sum1 += y[i][j] * (observations[j]-new_means[i])**2
+                sum1 += y[i][j] * (observations[j] - new_means[i]) ** 2
                 sum2 += y[i][j]
-            variences[i] = sum1/sum2
+            variences[i] = sum1 / sum2
         return variences
 
     counter = 0
@@ -456,33 +457,33 @@ def task_2():
 
         y = likelihood_of_states(a, b)
 
-        e = likelihood_of_transition(a,b,transition_matrix,emission_function, observations)
+        e = likelihood_of_transition(
+            a, b, transition_matrix, emission_function, observations
+        )
 
         new_transition_matrx = get_new_transition_matrix(e)
         logger.info(new_transition_matrx)
-        
 
-        new_means = get_new_means(y,observations)
+        new_means = get_new_means(y, observations)
         logger.info(new_means)
-        
 
-        new_variences = get_new_varience(y,observations,new_means)
+        new_variences = get_new_varience(y, observations, new_means)
         logger.info(new_variences)
-        
+
         counter += 1
         # logger.info(e[0][0][0])
         # logger.info(e[0][1][0])
         # logger.info(e[1][0][0])
         # logger.info(e[1][1][0])
-        result1 = match_matrix(transition_matrix,new_transition_matrx)
+        result1 = match_matrix(transition_matrix, new_transition_matrx)
 
-        result2 = match_matrix(means,new_means)
+        result2 = match_matrix(means, new_means)
 
-        result3 = match_matrix(variances,new_variences)
-        
+        result3 = match_matrix(variances, new_variences)
+
         if result1 and result2 and result3:
             break
-        
+
         transition_matrix = new_transition_matrx
         means = new_means
         variances = new_variences
@@ -523,11 +524,11 @@ def task_2():
         output_file.write(f"{initial_probabilites[i]} ")
     output_file.write(f"\n")
     output_file.close()
-    
+
     from hmmlearn import hmm
 
     remodel = hmm.GaussianHMM(n_components=2, covariance_type="full", n_iter=100)
-    observation_cast_2D = [] 
+    observation_cast_2D = []
     for i in range(len(observations)):
         t = []
         t.append(observations[i])
@@ -537,9 +538,6 @@ def task_2():
     print("transition probabilities:", remodel.transmat_)
     print("means:", remodel.means_)
     print("variances:", remodel.covars_)
-    
-        
-        
 
 
 if __name__ == "__main__":
